@@ -148,6 +148,10 @@ class GShockAPIMock(private val context: Context) : IGShockAPI {
         Timber.i("Time set to $timeZone")
     }
 
+    override suspend fun primeTimeCache() {
+        Timber.i("Time cache primed (mock)")
+    }
+
     override suspend fun getAlarms(): ArrayList<Alarm> {
         delay(0)
 
