@@ -426,6 +426,10 @@ class GShockAPI(private val context: Context) : IGShockAPI {
         TimeIO.set(timeMs)
     }
 
+    override suspend fun primeTimeCache() {
+        TimeIO.primeTimeCache()
+    }
+
     /**
      * Gets the current alarms from the watch. Up to 5 alarms are supported on the watch.
      *

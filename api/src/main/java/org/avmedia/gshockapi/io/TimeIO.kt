@@ -124,6 +124,15 @@ object TimeIO {
     }
 
     /**
+     * Warm the BLE cache that [set] depends on (DST, world cities) without writing
+     * a timestamp to the watch. Safe to call repeatedly; has no visible effect on
+     * the watch display.
+     */
+    suspend fun primeTimeCache() {
+        initializeForSettingTime()
+    }
+
+    /**
      * This function is internally called by [setTime] to initialize some values.
      */
     private suspend fun initializeForSettingTime() {
@@ -204,11 +213,7 @@ object TimeIO {
 
     fun sendToWatchSet(message: String) {
         val dateTimeMs: Long = JSONObject(message).get("value") as Long
-        val dstDurationToAdd =
-            if (state.casioTimezone.isInDST()) state.casioTimezone.dstOffset * 60 * 15 else 0
-        val msAdjustedForDST = dateTimeMs + dstDurationToAdd
-
-        val instant = Instant.ofEpochMilli(msAdjustedForDST)
+        val instant = Instant.ofEpochMilli(dateTimeMs)
         val adjustedDateTime = LocalDateTime.ofInstant(instant, state.casioTimezone.zoneId)
 
         val timeData = TimeEncoder.prepareCurrentTime(adjustedDateTime)
@@ -229,8 +234,8 @@ object TimeIO {
             arr[5] = date.minute.toByte()
             arr[6] = date.second.toByte()
             arr[7] = date.dayOfWeek.value.toByte()
-            arr[8] = (date.nano / 1000000).toByte()
-            arr[9] = 1 // or 0?
+            arr[8] = (date.nano / 10_000_000L).toByte() // hundredths of a second, 0..99
+            arr[9] = 1
             return arr
         }
     }

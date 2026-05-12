@@ -177,6 +177,16 @@ interface IGShockAPI {
     suspend fun setTime(timeZone: String = TimeZone.getDefault().id, timeMs: Long? = null)
 
     /**
+     * Warms the BLE caches that [setTime] depends on (DST, world cities) without
+     * writing a timestamp to the watch. Call once after connect so a subsequent
+     * [setTime] is a single fast packet and does not flash an incorrect time on
+     * the watch display.
+     *
+     * Safe to call repeatedly. Has no visible effect on the watch.
+     */
+    suspend fun primeTimeCache()
+
+    /**
      * Retrieves the list of alarms from the watch.
      *
      * @return An ArrayList of [Alarm] objects.
