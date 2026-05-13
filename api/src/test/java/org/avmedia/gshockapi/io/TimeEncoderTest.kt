@@ -49,8 +49,8 @@ class TimeEncoderTest {
     }
 
     @Test
-    fun `trailing byte is 1`() {
+    fun `trailing byte is 0 (experimental, was 1 upstream)`() {
         val arr = TimeEncoder.prepareCurrentTime(LocalDateTime.of(2026, 1, 1, 0, 0, 0))
-        assertEquals(1.toByte(), arr[9])
+        assertEquals(0.toByte(), arr[9])
     }
 }
