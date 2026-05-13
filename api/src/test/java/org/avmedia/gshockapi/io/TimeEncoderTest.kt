@@ -27,11 +27,11 @@ class TimeEncoderTest {
     }
 
     @Test
-    fun `sub-second byte is hundredths of a second within 0 to 99`() {
+    fun `sub-second byte is fractions256 — half a second is 128`() {
         val arr = TimeEncoder.prepareCurrentTime(
-            LocalDateTime.of(2026, 1, 1, 0, 0, 0).withNano(990_000_000)
+            LocalDateTime.of(2026, 1, 1, 0, 0, 0).withNano(500_000_000)
         )
-        assertEquals(99.toByte(), arr[8])
+        assertEquals(128.toByte(), arr[8])
     }
 
     @Test
@@ -41,16 +41,16 @@ class TimeEncoderTest {
     }
 
     @Test
-    fun `sub-second byte never exceeds 99 for valid LocalDateTime`() {
+    fun `sub-second byte is 255 for max nano`() {
         val arr = TimeEncoder.prepareCurrentTime(
             LocalDateTime.of(2026, 1, 1, 0, 0, 0).withNano(999_999_999)
         )
-        assertEquals(99.toByte(), arr[8])
+        assertEquals(255.toByte(), arr[8])
     }
 
     @Test
-    fun `trailing byte is 0 (experimental, was 1 upstream)`() {
+    fun `trailing byte is 1 (BLE Current Time Service Adjust Reason = manual)`() {
         val arr = TimeEncoder.prepareCurrentTime(LocalDateTime.of(2026, 1, 1, 0, 0, 0))
-        assertEquals(0.toByte(), arr[9])
+        assertEquals(1.toByte(), arr[9])
     }
 }

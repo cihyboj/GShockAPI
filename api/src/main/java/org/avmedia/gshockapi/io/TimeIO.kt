@@ -234,13 +234,15 @@ object TimeIO {
             arr[5] = date.minute.toByte()
             arr[6] = date.second.toByte()
             arr[7] = date.dayOfWeek.value.toByte()
-            arr[8] = (date.nano / 10_000_000L).toByte() // hundredths of a second, 0..99
-            // Experimental: byte 9 was hardcoded to 1 in upstream. With it set to 1, observed
-            // behaviour is the watch displays the encoded integer second one tick later than
-            // expected (~1s consistent lag even when the packet arrives well-aligned with the
-            // target second). Trying 0 to see whether 1 means "advance to next second on
-            // receipt" vs 0 meaning "snap immediately to the encoded time".
-            arr[9] = 0
+            // Byte 8 is "Fractions256" per BLE Current Time Service spec
+            // (org.bluetooth.characteristic.current_time): one unit = 1/256 second.
+            // 0..255 covers the full second. (Previous values — milliseconds truncated,
+            // and the experimental hundredths — were both off-spec.)
+            arr[8] = (date.nano * 256L / 1_000_000_000L).toByte()
+            // Byte 9 is the "Adjust Reason" field per BLE Current Time Service spec.
+            // 1 = "Manual time update" — the value Gadgetbridge and other Casio reverse-
+            // engineering projects converged on for time set operations.
+            arr[9] = 1
             return arr
         }
     }
