@@ -235,7 +235,12 @@ object TimeIO {
             arr[6] = date.second.toByte()
             arr[7] = date.dayOfWeek.value.toByte()
             arr[8] = (date.nano / 10_000_000L).toByte() // hundredths of a second, 0..99
-            arr[9] = 1
+            // Experimental: byte 9 was hardcoded to 1 in upstream. With it set to 1, observed
+            // behaviour is the watch displays the encoded integer second one tick later than
+            // expected (~1s consistent lag even when the packet arrives well-aligned with the
+            // target second). Trying 0 to see whether 1 means "advance to next second on
+            // receipt" vs 0 meaning "snap immediately to the encoded time".
+            arr[9] = 0
             return arr
         }
     }
