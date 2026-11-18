@@ -241,6 +241,7 @@ private class GShockManagerImpl(
 
         override fun onDeviceDisconnected(device: BluetoothDevice, reason: Int) {
             ProgressEvents.onNext("Disconnect", device)
+            StepCounterIO.onDisconnected()
 
             Timber.d("Device disconnected with reason: $reason")
             when (reason) {

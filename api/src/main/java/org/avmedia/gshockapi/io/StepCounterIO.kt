@@ -274,6 +274,7 @@ object StepCounterIO {
     private const val REQUEST_TIMEOUT_MS = 10_000L
     private const val DRSP_CATEGORY_EXERCISE = 0x11
     private const val DRSP_LENGTH_ANNOUNCEMENT = 0x00
+    private const val CACHED_WARNING = "cached: peek transaction still open in this connection"
     private val START_TRANSACTION_CMD = byteArrayOf(0x00, DRSP_CATEGORY_EXERCISE.toByte(), 0x00, 0x00, 0x00)
     private val END_TRANSACTION_CMD = byteArrayOf(0x04, DRSP_CATEGORY_EXERCISE.toByte(), 0x00, 0x00, 0x00)
 
@@ -282,6 +283,12 @@ object StepCounterIO {
     private var expectedLength: Int = FALLBACK_EXPECTED_LENGTH
     private var result: CompletableDeferred<StepCounterData>? = null
     private var peekMode: Boolean = true
+
+    // A peek read leaves the watch's transaction open, and the watch ignores a new
+    // start (`00 11`) until it is closed or the link drops. Remember that, so a second
+    // peek in the same connection returns the record already read instead of timing out.
+    private var openPeekTransaction = false
+    private var lastData: StepCounterData? = null
 
     /**
      * Reads the lifelog. With [peek] = true the transaction is not closed with
@@ -297,7 +304,27 @@ object StepCounterIO {
             Timber.w("StepCounterIO: data request characteristic not available")
             return StepCounterData.unavailable()
         }
-        return requestMutex.withLock { readOnce(peek) }
+        return requestMutex.withLock {
+            val cached = synchronized(this) { if (openPeekTransaction) lastData else null }
+            when {
+                peek && cached != null -> cached.copy(warnings = cached.warnings + CACHED_WARNING)
+                else -> {
+                    if (synchronized(this) { openPeekTransaction }) {
+                        IO.writeCmd(GetSetMode.DATA_REQUEST, END_TRANSACTION_CMD)
+                        synchronized(this) { openPeekTransaction = false }
+                    }
+                    readOnce(peek)
+                }
+            }
+        }
+    }
+
+    /** Called when the BLE link drops: the watch has discarded any open transaction. */
+    fun onDisconnected() {
+        synchronized(this) {
+            openPeekTransaction = false
+            lastData = null
+        }
     }
 
     private suspend fun readOnce(peek: Boolean): StepCounterData {
@@ -362,6 +389,10 @@ object StepCounterIO {
             .onFailure { Timber.e(it, "StepCounterIO: parse failed") }
             .getOrNull()
         if (stepData == null) Timber.w("StepCounterIO: could not parse ${payload.size}B record")
+        synchronized(this) {
+            openPeekTransaction = peek
+            lastData = if (peek) stepData else null
+        }
         deferred.complete(stepData ?: StepCounterData.unavailable().copy(raw = payload))
     }
 }
