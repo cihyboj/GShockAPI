@@ -30,6 +30,7 @@ data object WatchInfo {
     var chimeInSettings = false
     var vibrate = false
     var hasHealthFunctions = false
+    var hasStepCounter = false
     var hasMessages = false
     var hasDateFormat = true
     var hasWorldCities = true
@@ -79,6 +80,7 @@ data object WatchInfo {
         val chimeInSettings: Boolean = false,
         val vibrate: Boolean = false,
         val hasHealthFunctions: Boolean = false,
+        val hasStepCounter: Boolean = false,
         val hasMessages: Boolean = false,
         val hasDateFormat: Boolean = true,
         val hasWorldCities: Boolean = true,
@@ -165,6 +167,7 @@ data object WatchInfo {
                 hasTemperature = false,
                 hasBatteryLevel = false,
                 hasWorldCities = false,
+                hasStepCounter = true,
             ),
             ModelInfo(model = WatchModel.GA, hasAutoLight = false, hasReminders = true),
             ModelInfo(model = WatchModel.GB001, hasAutoLight = true, hasReminders = false),
@@ -287,6 +290,7 @@ data object WatchInfo {
                 this@WatchInfo.chimeInSettings = chimeInSettings
                 this@WatchInfo.vibrate = vibrate
                 this@WatchInfo.hasHealthFunctions = hasHealthFunctions
+                this@WatchInfo.hasStepCounter = hasStepCounter
                 this@WatchInfo.hasMessages = hasMessages
                 this@WatchInfo.hasDateFormat = hasDateFormat
                 this@WatchInfo.hasWorldCities = hasWorldCities
@@ -315,6 +319,7 @@ data object WatchInfo {
                     this@WatchInfo.chimeInSettings = chimeInSettings
                     this@WatchInfo.vibrate = vibrate
                     this@WatchInfo.hasHealthFunctions = hasHealthFunctions
+                    this@WatchInfo.hasStepCounter = hasStepCounter
                     this@WatchInfo.hasMessages = hasMessages
                     this@WatchInfo.hasDateFormat = hasDateFormat
                     this@WatchInfo.hasWorldCities = hasWorldCities

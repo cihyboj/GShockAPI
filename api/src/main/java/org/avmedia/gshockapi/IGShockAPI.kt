@@ -1,5 +1,7 @@
 package org.avmedia.gshockapi
 
+import org.avmedia.gshockapi.model.StepCounterData
+
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.os.Build
@@ -247,6 +249,14 @@ interface IGShockAPI {
      * @return A [TimeAdjustmentInfo] object.
      */
     suspend fun getTimeAdjustment(): TimeAdjustmentInfo
+
+    /**
+     * Reads the step counter lifelog (ABL-100WE). With [peek] = true the read
+     * transaction is left open so hourly records are not marked as delivered.
+     *
+     * @return [StepCounterData]; [StepCounterData.unavailable] when unsupported or on timeout.
+     */
+    suspend fun getStepCount(peek: Boolean = true): StepCounterData
 
     /**
      * Updates the watch's configuration settings.

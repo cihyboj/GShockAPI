@@ -13,6 +13,7 @@ import no.nordicsemi.android.ble.BleManager
 import no.nordicsemi.android.ble.observer.ConnectionObserver
 import org.avmedia.gshockapi.ProgressEvents
 import org.avmedia.gshockapi.casio.CasioConstants
+import org.avmedia.gshockapi.io.StepCounterIO
 import timber.log.Timber
 import java.util.UUID
 
@@ -25,7 +26,10 @@ typealias OnConnectedType = (String, String) -> Unit
 enum class GetSetMode {
     GET,
     SET,
-    NOTIFY
+    NOTIFY,
+
+    /** 26eb0023: lifelog (step counter) transaction start/end; replies arrive as notifications. */
+    DATA_REQUEST,
 }
 
 interface GShock {
@@ -50,6 +54,8 @@ private class GShockManagerImpl(
     private var readCharacteristicHolder: BluetoothGattCharacteristic? = null
     private var writeCharacteristicHolder: BluetoothGattCharacteristic? = null
     private var writeCharacteristicHolderNotifications: BluetoothGattCharacteristic? = null
+    private var dataRequestCharacteristicHolder: BluetoothGattCharacteristic? = null
+    private var convoyCharacteristicHolder: BluetoothGattCharacteristic? = null
 
     var dataReceivedCallback: IDataReceived? = null
     private lateinit var device: BluetoothDevice
@@ -70,6 +76,24 @@ private class GShockManagerImpl(
                 dataReceivedCallback?.dataReceived(hexData)
             }
             enableNotifications(characteristic).enqueue()
+        }
+        // Lifelog (step counter) channels. Routed by characteristic, not through the
+        // first-byte dispatcher: convoy continuation chunks carry no command byte.
+        dataRequestCharacteristicHolder?.let { characteristic ->
+            setNotificationCallback(characteristic).with { _, data ->
+                data.value?.let(StepCounterIO::onDataRequestNotification)
+            }
+            enableNotifications(characteristic)
+                .fail { _, status -> Timber.w("Data request notifications not enabled: $status") }
+                .enqueue()
+        }
+        convoyCharacteristicHolder?.let { characteristic ->
+            setNotificationCallback(characteristic).with { _, data ->
+                data.value?.let(StepCounterIO::onConvoyNotification)
+            }
+            enableNotifications(characteristic)
+                .fail { _, status -> Timber.w("Convoy notifications not enabled: $status") }
+                .enqueue()
         }
         ProgressEvents.onNext("BleManagerInitialized")
     }
@@ -135,6 +159,8 @@ private class GShockManagerImpl(
         readCharacteristicHolder = null
         writeCharacteristicHolder = null
         writeCharacteristicHolderNotifications = null
+        dataRequestCharacteristicHolder = null
+        convoyCharacteristicHolder = null
         characteristicUUIDs.clear()
 
         if (isReady) {
@@ -231,6 +257,8 @@ private class GShockManagerImpl(
             readCharacteristicHolder = null
             writeCharacteristicHolder = null
             writeCharacteristicHolderNotifications = null
+            dataRequestCharacteristicHolder = null
+            convoyCharacteristicHolder = null
             characteristicUUIDs.clear()
 
             // Force garbage collection of BLE resources
@@ -254,6 +282,12 @@ private class GShockManagerImpl(
                     CasioConstants.CASIO_NOTIFICATION_CHARACTERISTIC_UUID,
                 )
             }
+            dataRequestCharacteristicHolder = getCharacteristic(
+                CasioConstants.CASIO_DATA_REQUEST_SP_CHARACTERISTIC_UUID,
+            )
+            convoyCharacteristicHolder = getCharacteristic(
+                CasioConstants.CASIO_CONVOY_CHARACTERISTIC_UUID,
+            )
             return true
         }
         return false
@@ -329,6 +363,7 @@ private class GShockManagerImpl(
             GetSetMode.GET -> CasioConstants.CASIO_READ_REQUEST_FOR_ALL_FEATURES_CHARACTERISTIC_UUID
             GetSetMode.SET -> CasioConstants.CASIO_ALL_FEATURES_CHARACTERISTIC_UUID
             GetSetMode.NOTIFY -> CasioConstants.CASIO_NOTIFICATION_CHARACTERISTIC_UUID
+            GetSetMode.DATA_REQUEST -> CasioConstants.CASIO_DATA_REQUEST_SP_CHARACTERISTIC_UUID
         }
 
         val isSupported = characteristicUUIDs.containsKey(uuid.toString())
@@ -350,6 +385,7 @@ private class GShockManagerImpl(
             GetSetMode.GET -> readCharacteristicHolder
             GetSetMode.SET -> writeCharacteristicHolder
             GetSetMode.NOTIFY -> writeCharacteristicHolderNotifications
+            GetSetMode.DATA_REQUEST -> dataRequestCharacteristicHolder
         }
         val writeType =
             if (handle == GetSetMode.GET || handle == GetSetMode.NOTIFY)
