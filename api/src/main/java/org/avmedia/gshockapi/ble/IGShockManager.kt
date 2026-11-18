@@ -81,7 +81,10 @@ private class GShockManagerImpl(
         // first-byte dispatcher: convoy continuation chunks carry no command byte.
         dataRequestCharacteristicHolder?.let { characteristic ->
             setNotificationCallback(characteristic).with { _, data ->
-                data.value?.let(StepCounterIO::onDataRequestNotification)
+                data.value?.let {
+                    LifelogTap.listener?.invoke("0x23", it)
+                    StepCounterIO.onDataRequestNotification(it)
+                }
             }
             enableNotifications(characteristic)
                 .fail { _, status -> Timber.w("Data request notifications not enabled: $status") }
@@ -89,7 +92,10 @@ private class GShockManagerImpl(
         }
         convoyCharacteristicHolder?.let { characteristic ->
             setNotificationCallback(characteristic).with { _, data ->
-                data.value?.let(StepCounterIO::onConvoyNotification)
+                data.value?.let {
+                    LifelogTap.listener?.invoke("0x24", it)
+                    StepCounterIO.onConvoyNotification(it)
+                }
             }
             enableNotifications(characteristic)
                 .fail { _, status -> Timber.w("Convoy notifications not enabled: $status") }

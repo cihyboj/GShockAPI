@@ -1,6 +1,8 @@
 package org.avmedia.gshockapi
 
+import org.avmedia.gshockapi.io.ExerciseIO
 import org.avmedia.gshockapi.io.StepCounterIO
+import org.avmedia.gshockapi.model.ExerciseProfile
 import org.avmedia.gshockapi.model.StepCounterData
 
 import android.bluetooth.BluetoothDevice
@@ -538,6 +540,10 @@ class GShockAPI(private val context: Context) : IGShockAPI {
     }
 
     override suspend fun getStepCount(peek: Boolean): StepCounterData = StepCounterIO.request(peek)
+
+    override suspend fun getExerciseProfile(): ExerciseProfile? = ExerciseIO.request()
+
+    override fun setExerciseProfile(profile: ExerciseProfile) = ExerciseIO.set(profile)
 
     /**
      * Sends a notification to the watch display.
