@@ -17,6 +17,7 @@ import org.avmedia.gshockapi.io.ErrorIO
 import org.avmedia.gshockapi.io.EventsIO
 import org.avmedia.gshockapi.io.RunActionsIO
 import org.avmedia.gshockapi.io.SettingsIO
+import org.avmedia.gshockapi.io.ExerciseIO
 import org.avmedia.gshockapi.io.TimeAdjustmentIO
 import org.avmedia.gshockapi.io.TimeIO
 import org.avmedia.gshockapi.io.TimerIO
@@ -66,6 +67,7 @@ object MessageDispatcher {
         CasioConstants.CHARACTERISTICS.CASIO_BLE_FEATURES.code to ButtonPressedIO::onReceived,
         CasioConstants.CHARACTERISTICS.CASIO_SETTING_FOR_BASIC.code to SettingsIO::onReceived,
         CasioConstants.CHARACTERISTICS.CASIO_SETTING_FOR_BLE.code to TimeAdjustmentIO::onReceived,
+        ExerciseIO.CLASS_EXERCISE to ExerciseIO::onReceived,
 
         CasioConstants.CHARACTERISTICS.ERROR.code to ErrorIO::onReceived,
         CasioConstants.CHARACTERISTICS.FIND_PHONE.code to RunActionsIO::onReceived, // always-connected watches, use PHONE FINDER to invoke actions...

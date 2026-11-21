@@ -1,5 +1,8 @@
 package org.avmedia.gshockapi
 
+import org.avmedia.gshockapi.model.ExerciseProfile
+import org.avmedia.gshockapi.model.StepCounterData
+
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.os.Build
@@ -247,6 +250,24 @@ interface IGShockAPI {
      * @return A [TimeAdjustmentInfo] object.
      */
     suspend fun getTimeAdjustment(): TimeAdjustmentInfo
+
+    /**
+     * Reads the step counter lifelog (ABL-100WE). With [peek] = true the read
+     * transaction is left open so hourly records are not marked as delivered.
+     *
+     * @return [StepCounterData]; [StepCounterData.unavailable] when unsupported or on timeout.
+     */
+    suspend fun getStepCount(peek: Boolean = true): StepCounterData
+
+    /**
+     * Reads the exercise profile (step goal, height cm, weight kg), class 0x2D.
+     * Returns null when unsupported or when the watch does not answer; never
+     * write a profile back unless this returned a real value.
+     */
+    suspend fun getExerciseProfile(): ExerciseProfile?
+
+    /** Writes the exercise profile (class 0x2D). */
+    fun setExerciseProfile(profile: ExerciseProfile)
 
     /**
      * Updates the watch's configuration settings.

@@ -1,5 +1,8 @@
 package org.avmedia.gshockapi
 
+import org.avmedia.gshockapi.model.ExerciseProfile
+import org.avmedia.gshockapi.model.StepCounterData
+
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.os.Build
@@ -275,6 +278,14 @@ class GShockAPIMock(private val context: Context) : IGShockAPI {
 
     override suspend fun getTimeAdjustment(): TimeAdjustmentInfo {
         return TimeAdjustmentInfo(true, 30)
+    }
+
+    override suspend fun getStepCount(peek: Boolean): StepCounterData = StepCounterData.unavailable()
+
+    override suspend fun getExerciseProfile(): ExerciseProfile? = null
+
+    override fun setExerciseProfile(profile: ExerciseProfile) {
+        Timber.i("Exercise profile set: $profile")
     }
 
     override fun setSettings(settings: Settings) {
