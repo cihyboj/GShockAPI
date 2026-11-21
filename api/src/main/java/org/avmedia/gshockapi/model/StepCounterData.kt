@@ -18,7 +18,7 @@ data class ActivityPeriod(
  * ABL-100WE life-log record.
  *
  * `hourlySteps` contains the accumulated steps per interval.
- * `dailyHistory` contains the 14 daily step slots.
+ * `dailyHistory` contains the 7 daily step slots.
  * `dailyDistances` contains the matching daily distance slots.
  * `null` represents the watch's unavailable sentinel rather than a genuine zero-step period.
  */

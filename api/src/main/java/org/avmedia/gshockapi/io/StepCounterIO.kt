@@ -275,6 +275,7 @@ object StepCounterIO {
     private const val DRSP_CATEGORY_EXERCISE = 0x11
     private const val DRSP_LENGTH_ANNOUNCEMENT = 0x00
     private const val CACHED_WARNING = "cached: peek transaction still open in this connection"
+    private const val ATTEMPTED_WARNING = "peek already attempted in this connection; reconnect to read again"
     private val START_TRANSACTION_CMD = byteArrayOf(0x00, DRSP_CATEGORY_EXERCISE.toByte(), 0x00, 0x00, 0x00)
     private val END_TRANSACTION_CMD = byteArrayOf(0x04, DRSP_CATEGORY_EXERCISE.toByte(), 0x00, 0x00, 0x00)
 
@@ -285,10 +286,25 @@ object StepCounterIO {
     private var peekMode: Boolean = true
 
     // A peek read leaves the watch's transaction open, and the watch ignores a new
-    // start (`00 11`) until it is closed or the link drops. Remember that, so a second
-    // peek in the same connection returns the record already read instead of timing out.
-    private var openPeekTransaction = false
+    // start (`00 11`) until it is closed or the link drops. Closing (`04 11`) deletes
+    // the hourly and daily history on the watch, so a peek must never close. The flag
+    // is set when a start is sent (also if the read then times out, is cancelled or
+    // fails to parse); later peeks in the same connection return the record already
+    // read, or "unavailable", without touching the watch.
+    private var transactionStarted = false
     private var lastData: StepCounterData? = null
+
+    internal enum class PeekAction { START, RETURN_CACHED, RETURN_UNAVAILABLE }
+
+    /** Pure decision for a peek request; never results in `04 11`. */
+    internal fun peekAction(transactionStarted: Boolean, cached: StepCounterData?): PeekAction = when {
+        !transactionStarted -> PeekAction.START
+        cached != null -> PeekAction.RETURN_CACHED
+        else -> PeekAction.RETURN_UNAVAILABLE
+    }
+
+    /** Whether finishing a read sends `04 11` (deletes history). Only an explicit close does. */
+    internal fun closesTransaction(peek: Boolean): Boolean = !peek
 
     /**
      * Reads the lifelog. With [peek] = true the transaction is not closed with
@@ -305,16 +321,24 @@ object StepCounterIO {
             return StepCounterData.unavailable()
         }
         return requestMutex.withLock {
-            val cached = synchronized(this) { if (openPeekTransaction) lastData else null }
-            when {
-                peek && cached != null -> cached.copy(warnings = cached.warnings + CACHED_WARNING)
-                else -> {
-                    if (synchronized(this) { openPeekTransaction }) {
-                        IO.writeCmd(GetSetMode.DATA_REQUEST, END_TRANSACTION_CMD)
-                        synchronized(this) { openPeekTransaction = false }
-                    }
-                    readOnce(peek)
+            val (started, cached) = synchronized(this) { transactionStarted to lastData }
+            if (peek) {
+                when (peekAction(started, cached)) {
+                    PeekAction.RETURN_CACHED -> cached!!.copy(warnings = cached.warnings + CACHED_WARNING)
+                    PeekAction.RETURN_UNAVAILABLE -> StepCounterData.unavailable()
+                        .copy(warnings = listOf(ATTEMPTED_WARNING))
+                    PeekAction.START -> readOnce(peek = true)
                 }
+            } else {
+                // Explicit, destructive close requested by the caller (debug only).
+                if (started) {
+                    IO.writeCmd(GetSetMode.DATA_REQUEST, END_TRANSACTION_CMD)
+                    synchronized(this) {
+                        transactionStarted = false
+                        lastData = null
+                    }
+                }
+                readOnce(peek = false)
             }
         }
     }
@@ -322,7 +346,7 @@ object StepCounterIO {
     /** Called when the BLE link drops: the watch has discarded any open transaction. */
     fun onDisconnected() {
         synchronized(this) {
-            openPeekTransaction = false
+            transactionStarted = false
             lastData = null
         }
     }
@@ -334,6 +358,8 @@ object StepCounterIO {
             expectedLength = FALLBACK_EXPECTED_LENGTH
             result = deferred
             peekMode = peek
+            transactionStarted = true
+            lastData = null
         }
         try {
             IO.writeCmd(GetSetMode.DATA_REQUEST, START_TRANSACTION_CMD)
@@ -384,13 +410,13 @@ object StepCounterIO {
             if (accumulator.size < expectedLength || pending.isCompleted) return
             Triple(pending, accumulator.copyOf(expectedLength), peekMode)
         }
-        if (!peek) IO.writeCmd(GetSetMode.DATA_REQUEST, END_TRANSACTION_CMD)
+        if (closesTransaction(peek)) IO.writeCmd(GetSetMode.DATA_REQUEST, END_TRANSACTION_CMD)
         val stepData = runCatching { StepCounterIOFunctional.parse(payload) }
             .onFailure { Timber.e(it, "StepCounterIO: parse failed") }
             .getOrNull()
         if (stepData == null) Timber.w("StepCounterIO: could not parse ${payload.size}B record")
         synchronized(this) {
-            openPeekTransaction = peek
+            transactionStarted = peek
             lastData = if (peek) stepData else null
         }
         deferred.complete(stepData ?: StepCounterData.unavailable().copy(raw = payload))
