@@ -27,14 +27,19 @@ object WaitForConnectionIO {
         context: Context,
         deviceId: String?,
     ): String {
+        // Concurrent callers share one pending wait; each awaits its own reference, so the
+        // listener clearing `state` cannot leave a caller with nothing to await.
+        val deferred = state.deferredResult?.takeIf { it.isActive }
+            ?: CompletableDeferred<String>().also { state = state.copy(deferredResult = it) }
+
+        // MUST be before the isConnected check and startConnection: a link that becomes
+        // ready in between would otherwise be missed and this wait would never end.
+        setupConnectionListener()
+
+        // CONNECTED is only set once the watch is ready (services discovered).
         if (Connection.isConnected()) {
             return "OK"
         }
-
-        //state.deferredResult?.cancel()
-        state = state.copy(deferredResult = CompletableDeferred())
-
-        setupConnectionListener()  // MUST be before startConnection to avoid race
 
         if (!Connection.isConnecting()) {
             WatchDataListener.init()
@@ -42,7 +47,7 @@ object WaitForConnectionIO {
         }
         // If already connecting, just fall through and wait for the event
 
-        return state.deferredResult?.await() ?: ""
+        return deferred.await()
     }
 
     private fun setupConnectionListener() {

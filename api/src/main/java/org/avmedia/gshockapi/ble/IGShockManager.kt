@@ -202,7 +202,11 @@ private class GShockManagerImpl(
         @SuppressLint("MissingPermission")
         override fun onDeviceConnected(device: BluetoothDevice) {
             ProgressEvents.onNext("ConnectionStarted")
-            connectionState = ConnectionState.CONNECTED
+            // The link is up but services are not discovered yet: requests sent now have no
+            // characteristic to go to. CONNECTED is set in onDeviceReady. An autoConnect
+            // reconnect reaches this point ~2-3 s before ready, and a caller that saw
+            // CONNECTED here would start initialising too early and wait forever.
+            connectionState = ConnectionState.CONNECTING
         }
 
         override fun onDeviceFailedToConnect(device: BluetoothDevice, reason: Int) {
@@ -213,6 +217,7 @@ private class GShockManagerImpl(
         @SuppressLint("MissingPermission")
         override fun onDeviceReady(device: BluetoothDevice) {
             Timber.i("$device DeviceReady!!!!!!")
+            connectionState = ConnectionState.CONNECTED
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && device.bondState != BluetoothDevice.BOND_BONDED) {
                 device.createBond()
