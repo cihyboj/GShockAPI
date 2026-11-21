@@ -275,6 +275,7 @@ object StepCounterIO {
     private const val DRSP_CATEGORY_EXERCISE = 0x11
     private const val DRSP_LENGTH_ANNOUNCEMENT = 0x00
     private const val CACHED_WARNING = "cached: peek transaction still open in this connection"
+    private const val DISCONNECTED_WARNING = "link dropped before the record arrived"
     private const val ATTEMPTED_WARNING = "peek already attempted in this connection; reconnect to read again"
     private val START_TRANSACTION_CMD = byteArrayOf(0x00, DRSP_CATEGORY_EXERCISE.toByte(), 0x00, 0x00, 0x00)
     private val END_TRANSACTION_CMD = byteArrayOf(0x04, DRSP_CATEGORY_EXERCISE.toByte(), 0x00, 0x00, 0x00)
@@ -321,6 +322,10 @@ object StepCounterIO {
             return StepCounterData.unavailable()
         }
         return requestMutex.withLock {
+            // A request queued behind one from a previous connection must check the new one.
+            if (!WatchInfo.hasStepCounter || !Connection.isServiceSupported(GetSetMode.DATA_REQUEST)) {
+                return@withLock StepCounterData.unavailable()
+            }
             val (started, cached) = synchronized(this) { transactionStarted to lastData }
             if (peek) {
                 when (peekAction(started, cached)) {
@@ -343,12 +348,19 @@ object StepCounterIO {
         }
     }
 
-    /** Called when the BLE link drops: the watch has discarded any open transaction. */
+    /**
+     * Called when the BLE link drops: the watch has discarded any open transaction. A read
+     * still waiting ends now (as "unavailable") instead of holding the lock until its timeout,
+     * so it can never complete with data from the next connection.
+     */
     fun onDisconnected() {
-        synchronized(this) {
+        val pending = synchronized(this) {
             transactionStarted = false
             lastData = null
+            accumulator = ByteArray(0)
+            result.also { result = null }
         }
+        pending?.complete(StepCounterData.unavailable().copy(warnings = listOf(DISCONNECTED_WARNING)))
     }
 
     private suspend fun readOnce(peek: Boolean): StepCounterData {
@@ -370,8 +382,10 @@ object StepCounterIO {
             return stepData ?: StepCounterData.unavailable()
         } finally {
             synchronized(this) {
-                result = null
-                accumulator = ByteArray(0)
+                if (result === deferred) {
+                    result = null
+                    accumulator = ByteArray(0)
+                }
             }
         }
     }
