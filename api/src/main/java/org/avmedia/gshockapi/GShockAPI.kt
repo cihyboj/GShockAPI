@@ -513,6 +513,7 @@ class GShockAPI(private val context: Context) : IGShockAPI {
         val timeAdjustment = getTimeAdjustment()
         settings.timeAdjustment = timeAdjustment.isTimeAdjustmentSet
         settings.adjustmentTimeMinutes = timeAdjustment.adjustmentTimeMinutes
+        settings.adjustmentTimeHour = timeAdjustment.adjustmentTimeHour
         return settings
     }
 

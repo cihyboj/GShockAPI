@@ -49,6 +49,7 @@ object WaitForConnectionIO {
         val eventActions = arrayOf(
             EventAction("ConnectionSetupComplete") {
                 CachedIO.clearCache()
+                TimeAdjustmentIO.resetOriginalValue()
                 state.deferredResult?.complete("OK")
                 state = State()
             }

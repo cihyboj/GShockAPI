@@ -13,6 +13,8 @@ data class Settings(
         var buttonTone: Boolean = true,
         var timeAdjustment: Boolean = true,
         var adjustmentTimeMinutes: Int = 30,
+        // Auto-sync anchor hour (0-23) as read from the watch; -1 = keep the watch's value on write.
+        var adjustmentTimeHour: Int = -1,
         var fineAdjustment: Int = 0,
         var DnD: Boolean = false, // for always-connected watches only, like the ECB-30
         var font: String = "Standard" // "Standard" or "Classic"
